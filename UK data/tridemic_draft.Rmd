@@ -1,0 +1,387 @@
+---
+title: "tridemic_private"
+author: "Maddy Kline"
+date: "2023-01-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(readODS)
+library(ggplot2)
+
+```
+
+```{r}
+
+RSV_datamart <- read_ods("Weekly_Influenza_and_COVID19_report_data_w51-2.ods", sheet = 18)
+RSV_datamart <- RSV_datamart[7:59, 2:7]
+cols <- RSV_datamart[1,]
+colnames(RSV_datamart) <- cols
+RSV_datamart <- RSV_datamart[2:53,]
+RSV_datamart <- data.frame(lapply(RSV_datamart, as.numeric))
+colnames(RSV_datamart) <- cols
+
+rsv_pos <- pivot_longer(RSV_datamart, cols = c(`0 to 4 years`, `5 to 14 years`,
+                                    `15 to 44 years`, `45 to 64 years`, 
+                                    `65+ years`)) |>
+  ggplot(aes(`Week no`, value, group = name)) +
+  geom_line(aes(col = name)) +
+  ggtitle("% Positivity RSV by Age Group") +
+  labs(color = "Age Group") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+
+long_rsv_pos <- pivot_longer(RSV_datamart, cols = 2:6) |> 
+  mutate("virus" = "RSV")
+
+
+ggsave("RSV_pos_age.pdf", rsv_pos, device = "pdf")
+
+```
+```{r}
+#COVID positivity 
+cov_pos <- read_ods("Weekly_Influenza_and_COVID19_report_data_w51-2.ods", sheet = 8)
+mal <- cov_pos[8:60,2:12]
+cols_c <- mal[1,1:10]
+cols_c <- as.list(cols_c)
+first <- list("Week no")
+cols_c <- c(first, cols_c)
+mal <- mal[2:53,]
+fem <- cov_pos[64:115, 2:12]
+colnames(mal) <- cols_c
+colnames(fem) <- cols_c
+
+
+
+#joint / average dataframe
+cov_pos_avg = data.frame("Week no" = mal$`Week no`)
+cov_pos_avg = cov_pos_avg |> 
+  mutate("0_4" = (as.numeric(mal[,2]) + as.numeric(fem[,2]))/2,
+         "5_9"= (as.numeric(mal[,3]) + as.numeric(fem[,3]))/2,
+         "10_19" = (as.numeric(mal[,4]) + as.numeric(fem[,4]))/2,
+         "20_29" = (as.numeric(mal[,5]) + as.numeric(fem[,5]))/2,
+         "30_39" = (as.numeric(mal[,6]) + as.numeric(fem[,6]))/2,
+         "40_49" = (as.numeric(mal[,7]) + as.numeric(fem[,7]))/2,
+         "50_59" = (as.numeric(mal[,8]) + as.numeric(fem[,8]))/2,
+         "60_69" = (as.numeric(mal[,9]) + as.numeric(fem[,9]))/2,
+         "70_79" = (as.numeric(mal[,10]) + as.numeric(fem[,10]))/2,
+         "80+" = (as.numeric(mal[,11]) + as.numeric(fem[,11]))/2,
+  )
+
+long_cov_pos <- pivot_longer(cov_pos_avg, cols = 2:11) |> 
+  mutate("virus" = "COVID") |> 
+  mutate("Week no" = as.numeric(Week.no))
+
+covid_pos <- long_cov_pos  |>
+  ggplot(aes(`Week no`, value, group = name)) +
+  geom_line(aes(col = name)) +
+  ggtitle("% Positivity COVID by Age Group, \n Pillar 1") +
+  labs(color = "Age Group") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+
+
+
+ggsave("cov_pos_age.pdf", covid_pos, device = "pdf") 
+
+#adjust covid age groups to align better with RSV
+cov_pos_avg <- cov_pos_avg |> 
+  mutate("5_19" = (cov_pos_avg[,3] + cov_pos_avg[,4])/2) |>
+  mutate("20_49" = (cov_pos_avg[,5] + cov_pos_avg[,6] + cov_pos_avg[,7] )/3) |>
+  mutate("50_69" = (cov_pos_avg[,8] + cov_pos_avg[,9])/2) |>
+  mutate("70+" = (cov_pos_avg[,10] + cov_pos_avg[,11])/2)
+    
+cov_diff_age <- cov_pos_avg |>
+  mutate("Week no" = as.numeric(Week.no)) |>
+  select('Week no', '0_4', '5_19', '20_49', '50_69', '70+') 
+
+#make long format
+long_cov_for_join <- pivot_longer(cov_diff_age, cols = 2:6) |>
+  mutate("virus" = "COVID")
+  
+                    
+```
+
+
+```{r}
+#covid and RSV positivity positivity by age
+long_cov_pos <- long_cov_pos |> select(-Week.no)
+long_cov_pos
+long_rsv_pos
+cov_rsv_pos <- rbind(long_cov_pos, long_rsv_pos)
+#0-4 age group
+cov_rsv_pos_04 <- cov_rsv_pos |> 
+  filter(name %in% c("0_4", "0 to 4 years")) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("0-4 Age Group Weekly COVID and RSV Positivity") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+
+ggsave("cov_rsv_pos_0_4.pdf", cov_rsv_pos_04, device = "pdf") 
+
+#trying again with new dataframe with better matching ages
+cov_rsv_pos_agematch <- rbind(long_cov_for_join, long_rsv_pos)
+cov_rsv_pos_agematch |> 
+  filter(name %in% c("0_4", "0 to 4 years")) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("0-4 Age Group Weekly COVID and RSV Positivity") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+
+#now do the next age group, 5-14 for rsv and 5-19 for COVID
+cov_rsv_pos_age2 <- cov_rsv_pos_agematch |>
+  filter(name %in% c("5_19", "5 to 14 years")) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Age Group 2 Weekly COVID and RSV Positivity \n
+          5-14 RSV, 5-19 COVID") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+
+ggsave("cov_rsv_pos_agegroup2.pdf", cov_rsv_pos_age2, device = "pdf") 
+
+#age group 3, rsv 15-44, COVID 20-49
+cov_rsv_pos_age3 <- cov_rsv_pos_agematch |>
+  filter(name %in% c("20_49", "15 to 44 years")) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Age Group 2 Weekly COVID and RSV Positivity \n
+          15-44 RSV, 20-49 COVID") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+ggsave("cov_rsv_pos_agegroup3.pdf", cov_rsv_pos_age3, device = "pdf") 
+
+#age group 4, rsv 45-64, covid 50-69
+
+cov_rsv_pos_age4 <- cov_rsv_pos_agematch |>
+  filter(name %in% c("50_69" , "45 to 64 years")) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Age Group 2 Weekly COVID and RSV Positivity \n
+          45-64 RSV, 50-69 COVID") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+ggsave("cov_rsv_pos_agegroup4.pdf", cov_rsv_pos_age4, device = "pdf")
+
+#age group 5, rsv 65+, covid 70+
+cov_rsv_pos_age5 <- cov_rsv_pos_agematch |>
+  filter(name %in% c("70+"  , "65+ years")) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Age Group 2 Weekly COVID and RSV Positivity \n
+          65+ RSV, 70+ COVID") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Percent Positive Tests") +
+  theme_bw()
+ggsave("cov_rsv_pos_agegroup5.pdf", cov_rsv_pos_age5, device = "pdf")
+
+```
+
+```{r}
+#now trying to do hospitalizations for all 3
+#want fig 47 for RSV hospitalizations by age group 
+#want fig 39 for flu and covid
+#start with fig 39
+cov_flu_hosp <- read_ods("Weekly_Influenza_and_COVID19_report_data_w51-2.ods", sheet = 35)
+cov_hosp <- cov_flu_hosp[8:60,2:11]
+groups <- c("Week no", cov_hosp[1,][1:9])
+cov_hosp <- cov_hosp[2:53,]
+#make into numerics
+cov_hosp <- data.frame(lapply(cov_hosp, as.numeric))
+colnames(cov_hosp) <- groups
+#make a 15-24 column
+cov_hosp <- cov_hosp |>
+  mutate("15 to 44" = (cov_hosp[,4] + cov_hosp[,5])/2 )
+#make it long for joining 
+long_cov_hosp <- pivot_longer(cov_hosp, 2:11) |>
+  mutate("virus" = "COVID")
+
+#plot covid hospitalization rates by age group
+cov_hosp_plot <- long_cov_hosp |>
+  ggplot(aes(`Week no`, value, group = name)) +
+  geom_line(aes(color = name)) +
+  ggtitle("Weekly COVID Hospitalizations by age") +
+  labs(color = "Age Group") +
+  scale_y_continuous("Hospitalizations") + 
+  theme_bw()
+ggsave("covid_hospitalizations_by_age.pdf", cov_hosp_plot, device = "pdf")
+
+
+#get flu from the same tab
+flu_hosp <- cov_flu_hosp[63:115,2:11]
+groups_flu <- c("Week no", flu_hosp[1,][1:8])
+flu_hosp <- flu_hosp[2:53,]
+#make numerics
+flu_hosp <- data.frame(lapply(flu_hosp, as.numeric))
+colnames(flu_hosp) <- groups_flu
+flu_hosp <- flu_hosp[1:9]
+#make it long for plotting and joining
+long_flu_hosp <- pivot_longer(flu_hosp, 2:9) |>
+  mutate("virus" = "Influenza")
+
+flu_hosp_plot <- long_flu_hosp |>
+  ggplot(aes(`Week no`, value, group = name)) +
+  geom_line(aes(color = name)) +
+  ggtitle("Weekly Flu Hospitalizations by age") +
+  labs(color = "Age Group") +
+  scale_y_continuous("Hospitalizations") + 
+  theme_bw()
+ggsave("flu_hospitalizations_by_age.pdf", flu_hosp_plot, device = "pdf")
+
+#now get RSV
+```
+
+```{r}
+rsv_hosp <- read_ods("Weekly_Influenza_and_COVID19_report_data_w51-2.ods", sheet = 41)
+rsv_hosp <- rsv_hosp[8:60, 2:10]
+groups_rsv <- c("Week no", rsv_hosp[1,][1:8])
+rsv_hosp <- rsv_hosp[2:53,]
+#to numerics
+rsv_hosp <- data.frame(lapply(rsv_hosp, as.numeric))
+colnames(rsv_hosp) <- groups_rsv
+
+#make long for plotting and joining
+long_rsv_hosp <- pivot_longer(rsv_hosp, cols = 2:9) |>
+  mutate("virus" = "RSV")
+rsv_hosp_plot <- long_rsv_hosp |>
+  ggplot(aes(`Week no`, value, group = name)) +
+  geom_line(aes(color = name)) +
+  ggtitle("Weekly RSV Hospitalizations by age") +
+  labs(color = "Age Group") +
+  scale_y_continuous("Hospitalizations") + 
+  theme_bw()
+
+ggsave("RSV_hospitalizations_by_age.pdf", rsv_hosp_plot, device = "pdf")
+```
+```{r}
+#plot them together by age group; 
+all_hosp <- rbind(long_cov_hosp,long_flu_hosp,long_rsv_hosp)
+#make weeks 51 and 52 0 and -1
+for(i in 1:length(all_hosp$`Week no`)){
+  if(all_hosp$`Week no`[i] == 52){
+    all_hosp[i,1] = 0
+  }
+}
+for(i in 1:length(all_hosp$`Week no`)){
+  if(all_hosp$`Week no`[i] == 51){
+    all_hosp[i,1] = -1
+  }
+}
+
+#youngest age group
+
+under5_all_hosp <- all_hosp |>
+  filter(name %in% c("0 to 4"  , "Under 5" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+          Under 5 Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+
+ggsave("all3_hosp_under5.pdf", under5_all_hosp, device = "pdf")
+
+#5-14 age group
+five14_all_hosp <- all_hosp |>
+  filter(name %in% c("5 to 14"  , "5 to 14 years" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+           5-14 Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+
+ggsave("all3_hosp_5-14.pdf", five14_all_hosp, device = "pdf")
+
+#15-44, but with caveat that unsure I calculated it right
+fif44_all_hosp <- all_hosp |>
+  filter(name %in% c("15 to 44"  , "15 to 44 years" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+           15-44 Age Group, POSSIBLY WRONG") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+
+ggsave("all3_hosp_15-44.pdf", fif44_all_hosp, device = "pdf")
+
+#45-54
+fort54_all_hosp <- all_hosp |>
+  filter(name %in% c("45 to 54"  , "45 to 54 years" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+           45-54 Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+
+ggsave("all3_hosp_45-54.pdf", fort54_all_hosp, device = "pdf")
+
+#55-64
+fift64_all_hosp <- all_hosp |>
+  filter(name %in% c("55 to 64"  , "55 to 64 years" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+          55-64 Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+ggsave("all3_hosp_55-64.pdf", fift64_all_hosp, device = "pdf")
+
+#65-74
+sixt74_all_hosp <- all_hosp |>
+  filter(name %in% c("65 to 74"  , "65 to 74 years" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+          65-74 Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+ggsave("all3_hosp_65-74.pdf", sixt74_all_hosp, device = "pdf")
+
+#75-84
+sevt84_all_hosp <- all_hosp |>
+  filter(name %in% c("75 to 84"  , "75 to 84 years" )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+          75-84 Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+ggsave("all3_hosp_75-84.pdf", sevt84_all_hosp, device = "pdf")
+
+#85+
+eightyplus_all_hosp <- all_hosp |>
+  filter(name %in% c("85+"  , "85 and over"  )) |>
+  ggplot(aes(`Week no`, value, group = virus)) +
+  geom_line(aes(col = virus)) +
+  ggtitle("Weekly COVID, Flu, and RSV Hospitalizations \n
+          85+ Age Group") +
+  labs(color = "Virus") +
+  scale_y_continuous(name = "Hospitalizations") +
+  theme_bw()
+ 
+ggsave("all3_hosp_75-84.pdf", eightyplus_all_hosp, device = "pdf")
+
+```
+
