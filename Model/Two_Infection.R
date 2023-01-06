@@ -29,8 +29,8 @@ Two_Infection <- function(t, state, parameters){
 
 
 times <- seq(0, 1000, by = 0.01)
-output<- ode(y = state, times = times, func = Two_Infection, )
-odeSolve(times, function = Two_Infection, parms = parameters)
+output<- ode(y = state, times = times, func = Two_Infection, parms = parameters)
+
 
 
 
