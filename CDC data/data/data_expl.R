@@ -423,5 +423,61 @@ threevir_twelsev<- threevir_allages |>
 
 ggsave("three_viruses_12-17_EIP_sites.pdf", threevir_twelsev, device = "pdf", width = 15, height = 10)
 
+threevir_twenties<- threevir_allages |>
+  +   filter(`AGE CATEGORY` %in% c("18-29 yr" ,"----18-29 years")) |>
+  +   filter(CATCHMENT %in% c("California", "Colorado", "Connecticut", "Georgia",
+                              +                           "Maryland", "Minnesota", "New Mexico", "Oregon", "Tennessee")) |>
+  +   mutate(Weekly_rate = as.numeric(`WEEKLY RATE`),
+             +          MMWR_Week = as.numeric(`MMWR-WEEK`)) |>
+  +   ggplot(aes(MMWR_Week, Weekly_rate, group = Infection)) +
+  +   geom_line(aes(color = Infection)) +
+  +   scale_x_continuous("2022 MMWR Week", breaks = c(40:52), limits = c(40,52)) +
+  +   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  +   theme_bw() + 
+  +   labs(color = "Infection") + 
+  +   ylab("Weekly Hospitalizations per 100,000 People") +
+  +   ggtitle("EIP Site Hospitalization Rates 2022 Season \n 18-29 Age Group") +
+  +   facet_wrap(~CATCHMENT)
 
 
+ #write function to do this
+plot_3_viruses <- function(age_list){
+       threevir_allages |>
+          filter(`AGE CATEGORY` %in% age_list) |>
+           filter(CATCHMENT %in% c("California", "Colorado", "Connecticut", "Georgia",
+                                   "Maryland", "Minnesota", "New Mexico", "Oregon", "Tennessee")) |>
+           mutate(Weekly_rate = as.numeric(`WEEKLY RATE`),
+                  MMWR_Week = as.numeric(`MMWR-WEEK`)) |>
+           ggplot(aes(MMWR_Week, Weekly_rate, group = Infection)) +
+           geom_line(aes(color = Infection)) +
+           scale_x_continuous("2022 MMWR Week", breaks = c(40:52), limits = c(40,52)) +
+           theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+           theme_bw() + 
+           labs(color = "Infection") + 
+           ylab("Weekly Hospitalizations per 100,000 People") +
+           ggtitle(paste("EIP Site Hospitalization Rates 2022 Season \n", age_list[1])) +
+           facet_wrap(~CATCHMENT)
+      
+       }
+plot_3_viruses(c("----30-39 years", "30-39 yr"))
+thirties <- plot_3_viruses(c("----30-39 years", "30-39 yr"))
+ggsave("three_viruses_30-39_EIP_sites.pdf", thirties, device = "pdf", width = 15, height = 10)
+fourties <- plot_3_viruses(c("40-49 yr","----40-49 years"))
+ggsave("three_viruses_40-49_EIP_sites.pdf", fourties, device = "pdf", width = 15, height = 10)
+fifties <- plot_3_viruses(c("50-64 years","50-64 yr"))
+fifties
+ggsave("three_viruses_50-64_EIP_sites.pdf", fifties, device = "pdf", width = 15, height = 10)
+eighteen49 <- plot_3_viruses(c("18-49 yr","18-49 years"))
+eighteen49
+ggsave("three_viruses_18-49_EIP_sites.pdf", eighteen49, device = "pdf", width = 15, height = 10)
+sixtyfiveplus <-plot_3_viruses(c("65+ yr","65+ years" ))
+sixtyfiveplus
+ggsave("three_viruses_65+_EIP_sites.pdf", sixtyfiveplus, device = "pdf", width = 15, height = 10)
+sixtyfivesev <- plot_3_viruses(c("65-74 yr","----65-74 years"))  
+sixtyfivesev
+ggsave("three_viruses_65-74_EIP_sites.pdf", sixtyfivesev, device = "pdf", width = 15, height = 10)
+sevfiveeight <- plot_3_viruses(c("75-84 yr" ,"----75-84 years")) 
+sevfiveeight
+ggsave("three_viruses_75-84_EIP_sites.pdf", sevfiveeight, device = "pdf", width = 15, height = 10)
+eightyfiveplus <- plot_3_viruses(c("85+","----85+ years"))
+ggsave("three_viruses_85+_EIP_sites.pdf", eightyfiveplus, device = "pdf", width = 15, height = 10)
