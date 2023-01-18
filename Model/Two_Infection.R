@@ -3,7 +3,7 @@ library(deSolve)
 library(ggplot2)
 library(patchwork)
 
- # Model
+# Model
 Two_Infection <- function(t, state, parameters){
   
   with(as.list(c(state,parameters)),{
@@ -31,23 +31,26 @@ Two_Infection <- function(t, state, parameters){
 
 times <- seq(0, 1000, by = 0.01)
 
- # Scenario 1: with viral interference (Recovery period = 10 days; eta_1 = eta_2 = 0.1)
-  # Parameters
-parameters <- list(beta_1=0.001, beta_2=0.0011, kappa_1=0.5, kappa_2=0.5, 
-                   delta_1=0.5, delta_2=0.5, eta_1=0.1, eta_2=0.1)
-  # Initial values
-state <- c(S=10e8, E_1=0, E_2=0, I_1=1, I_2=1, R_1=0, R_2=0, 
+# Scenario 1: with viral interference, both start at same time (Recovery period = 2 days; eta_1 = eta_2 = 0.5)
+# Parameters
+# Initial values
+state <- c(S=10000, E_1=0, E_2=0, I_1=50, I_2=50, R_1=0, R_2=0, 
            S_12=0, S_21=0, E_12=0, E_21=0, I_12=0, I_21=0, R=0)
 
-  # Model outputs
+N =  sum(state)
+parameters <- list(beta_1=3.0*0.07142857/N, beta_2=2.7*0.07142857/N, kappa_1=0.2, kappa_2=0.1481481, 
+                   delta_1=0.07142857, delta_2=0.07142857, eta_1=0.5, eta_2=0.5)
+
+
+# Model outputs
 output<- ode(y = state, times = times, func = Two_Infection, parms = parameters)
 df1 <- as.data.frame(output)
 df1 <- df1 %>%
   mutate(total_I_1 = I_1 + I_21,
          total_I_2 = I_2 + I_12)
 
- # Plot
-  ## Plot function
+# Plot
+## Plot function
 plot_I <- function(data){
   ggplot() +
     geom_line(data=data, aes(x=time, y=I_1, col="RSV (naive)")) +
@@ -59,22 +62,25 @@ plot_I <- function(data){
                                   "RSV (recovered from COVID)" = "lightblue",
                                   "COVID (naive)" = "darkred", 
                                   "COVID (recovered from RSV)" = "pink")) +
-    lims(x=c(0,100),
-         y=c(0,5e8)) +
+  
     theme_minimal() +
     labs(title = "Dynamics of the number infected over time",
          y = "Number infected",
          x = "Time(Day)")
 }
 
-  ## Plot scenario 1
+## Plot scenario 1
 p1 <- plot_I(data = df1) + 
-  labs(subtitle = "Assuming 2 days of recovery period (with protection from viral interference)")
+  labs(subtitle = "Assuming 2 days of recovery period assuming no offset")
 
 # Scenario 2: no viral interference (Recovery period = 0 days; eta_1 = eta_2 = 1000)
 
-par2 <- list(beta_1=0.001, beta_2=0.00105, kappa_1=0.5, kappa_2=0.5, 
-             delta_1=0.5, delta_2=0.5, eta_1=1000, eta_2=1000)
+state_2 <- c(S=10000, E_1=0, E_2=0, I_1=50, I_2=50, R_1=0, R_2=0, 
+           S_12=0, S_21=0, E_12=0, E_21=0, I_12=0, I_21=0, R=0)
+
+N =  sum(state_2)
+par2 <- list(beta_1=3.0*0.07142857/N, beta_2=2.7*0.07142857/N, kappa_1=0.2, kappa_2=0.1481481, 
+                   delta_1=0.07142857, delta_2=0.07142857, eta_1 = 1000, eta_2=1000)
 
 output_2 <- ode(y = state, times = times, func = Two_Infection, parms = par2)
 df2 <- as.data.frame(output_2)
@@ -82,10 +88,33 @@ df2 <- df2 %>%
   mutate(total_I_1 = I_1 + I_21,
          total_I_2 = I_2 + I_12)
 
-  ## Plot scenario 2
+## Plot scenario 2
 p2 <- plot_I(data = df2) + 
-  labs(subtitle = "Assuming 0 day of recovery period")
+  labs(subtitle = "Assuming 0 days of recovery period and no offset")
 
 plots_to_save <- p1 + p2
-ggsave("Figures/Dynamics_hypothetical.png", plot = plots_to_save, width=11, height=4, dpi=300)
+ggsave("Figures/Dynamics_hypothetical.png", plot = plots_to_save, width=11, height=4, dpi=300)#ODE Solver 
+
+# Scenario 3: No offset Extended viral interference (Recovery period = 5 days; eta_1 = eta_2 = .2)
+
+state_3 <- c(S=10000, E_1=0, E_2=0, I_1=50, I_2=50, R_1=0, R_2=0, 
+             S_12=0, S_21=0, E_12=0, E_21=0, I_12=0, I_21=0, R=0)
+
+N =  sum(state_3)
+par3 <- list(beta_1=3.0*0.07142857/N, beta_2=2.7*0.07142857/N, kappa_1=0.2, kappa_2=0.1481481, 
+             delta_1=0.07142857, delta_2=0.07142857, eta_1 = .2, eta_2=.2)
+
+output_3 <- ode(y = state, times = times, func = Two_Infection, parms = par3)
+df3 <- as.data.frame(output_2)
+df3 <- df3 %>%
+  mutate(total_I_1 = I_1 + I_21,
+         total_I_2 = I_2 + I_12)
+
+## Plot scenario 3
+p3 <- plot_I(data = df3) + 
+  labs(subtitle = "Assuming 5 days of recovery period and no offset")
+
+plots_to_save <- p1 + p2 + p3
+ggsave("Figures/Dynamics_hypothetical.png", plot = plots_to_save, width=11, height=4, dpi=300)#ODE Solver 
+
 
